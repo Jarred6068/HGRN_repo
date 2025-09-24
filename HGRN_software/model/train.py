@@ -146,8 +146,11 @@ class HCD_output():
         
         X_final, A_final, X_all_final, A_all_final, P_all_final, S_final, AW_final = model_output
         
-        eval_X, eval_A, eval_labels = test_set
-        
+        if test_set:
+            eval_X, eval_A, eval_labels = test_set
+        else:
+            eval_X, eval_A, eval_labels = None, None, None
+            
         self.model_output_history = all_output
         self.attention_weights = AW_final
         self.reconstructed_features = X_final.cpu()

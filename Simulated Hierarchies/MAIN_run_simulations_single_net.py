@@ -104,7 +104,7 @@ def run_single_simulation(args, simulation_args = None, return_model = False, **
             X, A, target_labels = train
             
     # read in regulon data
-    elif args.dataset in ['regulon.EM', 'regulon.DM.sc', 'regulon.DM.activity']:
+    elif args.dataset in ['regulon.EM', 'regulon.DM.sc', 'regulon.DM.activity', 'regulon.DM.activity.imputed']:
         
         X, A, gene_names, gt = load_application_data_regulon(args)
         if gt is not None:

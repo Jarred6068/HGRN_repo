@@ -10,8 +10,32 @@ library(ggpubr)
 library(tm)
 library(wordcloud)
 
-datapath = 'C:/Users/Bruin/OneDrive/Documents/GitHub/HGRN_repo/Reports/Report_2_13_2025/Output/applications/REGULON_DM/'
+
+get.count=function(group = 1, tab1 = gl, tab2 = gt){
+  
+  gn = subset(tab1, Top.Assignment == group)$TF_gene
+  
+  tg = gt[which(gt$TF_gene %in% gn),]$Targets
+    
+  ls = list()
+  sms = NULL
+  for(i in 1:length(tg)){
+    ls[[i]] = unique(strsplit(tg[i], ',')[[1]])
+    sms[i] = length(ls[[i]])
+  }
+  
+  print('summary og average targets of group')
+  print(summary(sms))
+  
+  targs = unlist(ls)
+  return(list(total = length(unique(targs)), group.targs = targs))
+}
+
+datapath = 'C:/Users/Bruin/OneDrive/Documents/GitHub/HGRN_repo/Reports/Report_2_13_2025/Output/applications/REGULON_DM_imputed_corr/'
 savepath = 'C:/Users/Bruin/OneDrive/Documents/GitHub/Doctoral_Thesis/Figures/hcd/topgo/'
+
+#dir.create('C:/Users/Bruin/OneDrive/Documents/GitHub/HGRN_repo/Reports/Report_2_13_2025/Output/applications/regulon_topgo/')
+#savepath = 'C:/Users/Bruin/OneDrive/Documents/GitHub/HGRN_repo/Reports/Report_2_13_2025/Output/applications/regulon_topgo_imputed_corr/'
 
 gl = read.csv(paste0(datapath, 'gene_data.csv'))
 
@@ -74,7 +98,8 @@ for(i in 1:length(unique(gl$Top.Assignment))){
 
 combplotA = ggarrange(go_top_plots[[1]]+rremove('ylab'), go_top_plots[[2]]+rremove('ylab'),
                       go_top_plots[[3]]+rremove('ylab'), go_top_plots[[4]]+rremove('ylab'),
-                      go_top_plots[[5]]+rremove('ylab'), nrow =3, ncol = 2)
+                      go_top_plots[[5]]+rremove('ylab'), 
+                      nrow =3, ncol = 2)
 
 
 combA_annot = annotate_figure(combplotA,
@@ -84,42 +109,49 @@ plot(combA_annot)
 dev.off()
 
 
-
+print(summary(as.factor(paste('Group', gl$Middle.Assignment, sep = ' '))))
 
 
 for(j in 1:length(unique(gl$Middle.Assignment))){
   
+  print(j)
   groups_middle[[j]] = gl$TF_gene[which(gl$Middle.Assignment == midc[j])]
-  go_middle[[j]] = gost(query = groups_middle[[j]], organism = "hsapiens", exclude_iea = FALSE, correction_method = "bonferroni", highlight = TRUE)
   
-  label = paste0('Regulon sub-group ', j, ' Genes: ', length(groups_middle[[j]]), '\n Enrichments: ', sum(go_middle[[j]]$result$significant))
-  go_middle[[j]]$result$query = rep(label, nrow(go_middle[[j]]$result))
+  tryCatch({
+    go_middle[[j]] = gost(query = groups_middle[[j]], organism = "hsapiens", exclude_iea = FALSE, correction_method = "bonferroni", highlight = TRUE)
+    label = paste0('Regulon sub-group ', j, ' Genes: ', length(groups_middle[[j]]), '\n Enrichments: ', sum(go_middle[[j]]$result$significant))
+    go_middle[[j]]$result$query = rep(label, nrow(go_middle[[j]]$result))
+    
+    go_middle_highlighted[[j]] = go_middle[[j]]$result$term_name[go_middle[[j]]$result$highlighted]
+    
+    p = gostplot(go_middle[[j]], capped = TRUE, interactive = F)
+    
+    B = p+theme(
+      legend.position = 'top', legend.text = element_text(size = 14),axis.text = element_text(size = 14),
+      legend.title = element_text(size = 14),
+      axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0), size = 14),
+      axis.title.x = element_text(margin = margin(t = 0, r = 35, b = 0, l = 0), size = 14),
+      strip.text.x = element_text(size = 14),
+      strip.text.y = element_text(size = 14),
+      plot.title = element_text(size = 14))
+    
+    
+    go_middle_plots[[j]] = B
+    
+    
+    pdf(paste0(savepath,'mid groups/regulon_group_', j, '.pdf'), height = 10, width = 10)
+    plot(B)
+    dev.off()
+    
+    final_label_mid = paste0('Regulon sub-group ', j)
+    go_middle[[j]]$result$query = rep(final_label_mid, nrow(go_middle[[j]]$result))
+    
+    go_middle_tables[[j]] = go_middle[[j]]$result[,-14]
+    
+  }, error = function(e) {
+    return(NULL)
+  })
   
-  go_middle_highlighted[[j]] = go_middle[[j]]$result$term_name[go_middle[[j]]$result$highlighted]
-  
-  p = gostplot(go_middle[[j]], capped = TRUE, interactive = F)
-  
-  B = p+theme(
-    legend.position = 'top', legend.text = element_text(size = 14),axis.text = element_text(size = 14),
-    legend.title = element_text(size = 14),
-    axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0), size = 14),
-    axis.title.x = element_text(margin = margin(t = 0, r = 35, b = 0, l = 0), size = 14),
-    strip.text.x = element_text(size = 14),
-    strip.text.y = element_text(size = 14),
-    plot.title = element_text(size = 14))
-  
-  
-  go_middle_plots[[j]] = B
-  
-  
-  pdf(paste0(savepath,'mid groups/regulon_group_', j, '.pdf'), height = 10, width = 10)
-  plot(B)
-  dev.off()
-  
-  final_label_mid = paste0('Regulon sub-group ', j)
-  go_middle[[j]]$result$query = rep(final_label_mid, nrow(go_middle[[j]]$result))
-  
-  go_middle_tables[[j]] = go_middle[[j]]$result[,-14]
     
 }
 
@@ -127,32 +159,32 @@ for(j in 1:length(unique(gl$Middle.Assignment))){
 combplotB = ggarrange(go_middle_plots[[1]]+rremove('ylab'), go_middle_plots[[2]]+rremove('ylab'),
                       go_middle_plots[[3]]+rremove('ylab'), go_middle_plots[[4]]+rremove('ylab'),
                       go_middle_plots[[5]]+rremove('ylab'), go_middle_plots[[6]]+rremove('ylab'),
-                      go_middle_plots[[7]]+rremove('ylab'), go_middle_plots[[8]]+rremove('ylab'),
-                      go_middle_plots[[9]]+rremove('ylab'), go_middle_plots[[10]]+rremove('ylab'),
-                      go_middle_plots[[11]]+rremove('ylab'), go_middle_plots[[12]]+rremove('ylab'), 
-                      go_middle_plots[[13]]+rremove('ylab'), go_middle_plots[[14]]+rremove('ylab'),
-                      go_middle_plots[[15]]+rremove('ylab'),
-                      nrow =5, ncol = 3)
+                      #go_middle_plots[[7]]+rremove('ylab'), go_middle_plots[[8]]+rremove('ylab'),
+                      #go_middle_plots[[9]]+rremove('ylab'), go_middle_plots[[10]]+rremove('ylab'),
+                      #go_middle_plots[[11]]+rremove('ylab'), go_middle_plots[[12]]+rremove('ylab'), 
+                      #go_middle_plots[[13]]+rremove('ylab'), go_middle_plots[[14]]+rremove('ylab'),
+                      #go_middle_plots[[15]]+rremove('ylab'),
+                      nrow = 3, ncol = 2)
 
 
 combB_annot = annotate_figure(combplotB,
                               left = text_grob("-log10(p-adjustment)", rot = 90, size = 16))
-pdf(paste0(savepath,'mid groups/regulon_middle_combined.pdf'), height = 16, width = 12)
+pdf(paste0(savepath,'mid groups/regulon_middle_combined.pdf'), height = 14, width = 12)
 plot(combB_annot)
 dev.off()
 
 
 
 
-final_top_table = do.call('rbind', go_top_tables)
-final_mid_table = do.call('rbind', go_middle_tables)
+#final_top_table = do.call('rbind', go_top_tables)
+#final_mid_table = do.call('rbind', go_middle_tables)
 
-write.csv(final_top_table, 
-          file = paste0(savepath, 'top groups/go_table_results_top.csv'))
+#write.csv(final_top_table, 
+#          file = paste0(savepath, 'top groups/go_table_results_top.csv'))
 
 
-write.csv(final_mid_table, 
-          file = paste0(savepath, 'mid groups/go_table_results_middle.csv'))
+#write.csv(final_mid_table, 
+#          file = paste0(savepath, 'mid groups/go_table_results_middle.csv'))
 
 
 
@@ -198,6 +230,79 @@ for(i in 1:5){
 
 
 
+
+
+
+
+
+### analysis on Wang Lab groups
+dp2 = 'C:/Users/Bruin/OneDrive/Documents/GitHub/HGRN_repo/Simulated Hierarchies/DATA/Applications/Crop Liver/DMEM_organoid_GT_labels.csv'
+
+
+gt = read.csv(dp2)
+
+topc = unique(gt$regulon_kmeans)
+
+groups_top = list()
+go_top = list()
+go_top_plots = list()
+go_top_tables = list()
+go_top_highlighted = list()
+
+
+for(i in 1:length(topc)){
+  
+  groups_top[[i]] = gt$TF_gene[which(gt$regulon_kmeans == topc[i])]
+  go_top[[i]] = gost(query = groups_top[[i]], 
+                     organism = "hsapiens", 
+                     exclude_iea = FALSE, 
+                     correction_method = "bonferroni", 
+                     highlight = TRUE)
+  
+  label = paste0('Regulon group ', i, ' Genes: ', length(groups_top[[i]]), '\n Enrichments: ', sum(go_top[[i]]$result$significant))
+  go_top[[i]]$result$query = rep(label, nrow(go_top[[i]]$result))
+  
+  go_top_highlighted[[i]] = go_top[[i]]$result$term_name[go_top[[i]]$result$highlighted]
+  
+  p = gostplot(go_top[[i]], capped = TRUE, interactive = F)
+  A = p+theme(
+    legend.position = 'top', legend.text = element_text(size = 15),axis.text = element_text(size = 15),
+    legend.title = element_text(size = 15),
+    axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0), size = 15),
+    axis.title.x = element_text(margin = margin(t = 0, r = 35, b = 0, l = 0), size = 15),
+    strip.text.x = element_text(size = 15),
+    strip.text.y = element_text(size = 15),
+    plot.title = element_text(size = 15))
+  
+  
+  go_top_plots[[i]] = A
+  
+  pdf(paste0(savepath,'gt groups/regulon_group_', i, '.pdf'), height = 10, width = 10)
+  plot(A)
+  dev.off()
+  
+  
+  final_label = paste0('Regulon group ', i)
+  go_top[[i]]$result$query = rep(final_label, nrow(go_top[[i]]$result))
+  
+  go_top_tables[[i]] = go_top[[i]]$result[,-14]
+  
+}
+
+combplotA = ggarrange(go_top_plots[[1]]+rremove('ylab'), go_top_plots[[2]]+rremove('ylab'),
+                      go_top_plots[[3]]+rremove('ylab'), go_top_plots[[4]]+rremove('ylab'),
+                      go_top_plots[[5]]+rremove('ylab'), 
+                      nrow =3, ncol = 2)
+
+
+combA_annot = annotate_figure(combplotA,
+                              left = text_grob("-log10(p-adjustment)", rot = 90, size = 16))
+pdf(paste0(savepath,'gt groups/regulon_top_combined.pdf'), height = 14, width = 12)
+plot(combA_annot)
+dev.off()
+
+
+print(summary(as.factor(paste('Group', gl$Middle.Assignment, sep = ' '))))
 
 
 

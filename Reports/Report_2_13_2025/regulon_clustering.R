@@ -14,7 +14,7 @@ colnames(regulon_activity) = c('gene', colnames(regulon_activity)[-1])
 sc_seq = as.data.frame(fread(file = 'C:/Users/Bruin/OneDrive/Documents/GitHub/HGRN_repo/Simulated Hierarchies/DATA/Applications/Crop Liver/expression_crop_liver.csv'))
 
 # read in the groups that Jun Cao provided
-cao_groups = read.csv('C:/Users/Bruin/OneDrive/Documents/GitHub/HGRN_repo/Simulated Hierarchies/DATA/Applications/Regulon_DM_groups.csv')
+cao_groups = read.csv('C:/Users/Bruin/OneDrive/Documents/GitHub/HGRN_repo/Simulated Hierarchies/DATA/Applications/Crop Liver/DMEM_organoid_GT_labels.csv')
 
 
 # extract just the DM cells
@@ -86,7 +86,7 @@ print(nmi)
 
 result2 = kmeans(rgc, 5, nstart = 1000)
 
-nmi2 = NMI(cao_groups[, c(3,1)], cbind.data.frame(gene = DMcells$gene[ix], group = result$kmeans$cluster))
+nmi2 = NMI(cao_groups[, c(3,1)], cbind.data.frame(gene = gl$TF_gene[ix], group = result$kmeans$cluster))
 
 print(nmi2)
 
@@ -101,7 +101,10 @@ print(nmi2)
 
 
 
+ix = na.omit(match(cao_groups$TF_gene, gl$TF_gene))
 
+nmi2 = NMI(cbind.data.frame(gene = cao_groups$TF_gene, group = cao_groups$regulon_kmeans), 
+           cbind.data.frame(gene = gl$TF_gene[ix], group = gl$`Top Assignment`))
 
-
+print(nmi2)
 

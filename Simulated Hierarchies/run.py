@@ -35,6 +35,7 @@ parser.add_argument('--use_true_graph', type=bool, default=True, help='Sets the 
 parser.add_argument('--correlation_cutoff', type=float, default=0.5, help='Use true graph or float giving graph with specified correlation cutoff')
 parser.add_argument('--mse_method', type=str, default='mse', choices=['mse', 'msenz'], help='Method for computing attribute reconstruction loss mse is classic Mean squared Error, while msenz is MSE computed over all nonzero values (recommended for sparse datasets such as scRNA)')
 parser.add_argument('--use_method', type=str, default='top_down', choices=['top_down','bottom_up'], help='method for uncovering the hierarchy')
+parser.add_argument('--use_gene_correlations', type=bool, default=False, help='when true the gene-gene correlation matrix is used as the input attributes')
 parser.add_argument('--use_softKMeans_top', type=bool, default=False, help='If true, the top layer is inferred with a softKMeans layer')
 parser.add_argument('--use_softKMeans_middle', type=bool, default=False, help='If true, the middle layer is inferred with a softKMeans layer')
 parser.add_argument('--gamma', type=float, default=1, help='Gamma hyperparameter value')
@@ -117,14 +118,14 @@ sim_args.connect = 'full'
 #global simulation settings
 sim_args.top_layer_nodes = 5
 sim_args.nodes_per_super2 = (3,3)
-#sim_args.nodes_per_super3 = (40,90)
+sim_args.nodes_per_super3 = (40,90)
 sim_args.common_dist = False
 sim_args.force_connect = True
-sim_args.connect_prob_middle = [np.random.uniform(0.01, 0.15), 
-                                np.random.uniform(0.01, 0.15)
+sim_args.connect_prob_middle = [np.random.uniform(0.01, 0.15), #within
+                                np.random.uniform(0.01, 0.15) #between 
                                 ] 
-sim_args.connect_prob_bottom = [np.random.uniform(0.01, 0.1), 
-                                np.random.uniform(0.01, 0.1)
+sim_args.connect_prob_bottom = [np.random.uniform(0.001, 0.005), #within 
+                                np.random.uniform(0.001, 0.005) #between
                                 ]
 sim_args.set_seed = False
 sim_args.layers = 3
@@ -145,7 +146,8 @@ args.save_model = False
 args.set_seed = 555
 args.read_from = 'local'
 args.mse_method = 'mse'
-args.load_from_existing = True
+args.use_gene_correlations = True
+args.load_from_existing = False
 args.early_stopping = True
 args.patience = 20
 args.use_method = "top_down"
@@ -157,11 +159,11 @@ args.add_output_layers = False
 args.AE_operator = 'GATv2Conv'
 #args.COMM_operator = 'Linear'
 args.COMM_operator = 'None'
-args.attn_heads = 1
+args.attn_heads = 5
 args.dropout_rate = 0.2
 args.normalize_input = True
 args.normalize_layers = True
-args.AE_hidden_size = [32]
+args.AE_hidden_size = [256, 128]
 args.LL_hidden_size = [128, 64] 
 args.gamma = 1
 args.delta = 1
@@ -173,7 +175,7 @@ args.compute_optimal_clusters = True
 args.kappa_method = 'bethe_hessian'
 
 #training settings
-args.dataset = 'regulon.DM.sc'
+args.dataset = 'generated'
 args.parent_distribution = 'unequal'
 args.which_net = 1
 args.training_epochs = 500

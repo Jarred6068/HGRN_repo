@@ -21,9 +21,13 @@ library(gridExtra)
 library(knitr)
 library(kableExtra)
 library(dplyr)
+library(ggsci)
 
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.pos = 'H')
+
+
+fig_savepath = 'C:/Users/Bruin/OneDrive/Documents/GitHub/Doctoral_Thesis/Figures/hcd/'
 
 ```
 
@@ -216,19 +220,158 @@ newktab = cbind.data.frame(Layer = c(rep('Middle Layer', r), rep('Top Layer', r)
                            K = c(ktab$k_middle, ktab$k_top),
                            rbind.data.frame(ktab[,-c(1,5)], ktab[,-c(1,5)]))
 
+colnames(newktab) = c(colnames(newktab)[1:3], 'Method', colnames(newktab)[5:15])
 
-A = ggplot(data = newktab, aes(x = method, y = K, fill = method, linetype = connect_type))+
-  geom_boxplot()+
+newktab$graph_type = recode(newktab$graph_type, 'small_world' = 'Small World', 'scale_free' = 'Scale Free', 'random_graph' = 'Random Graph')
+
+newktab$Method = recode(newktab$Method, 'bethe_hessian' = 'Bethe Hessian', 'silouette' = 'Silouette')
+
+newktab$`Graph Connectivity` = newktab$connect_type
+
+A = ggplot(data = newktab, aes(x = Method, y = K, fill = Method, linetype = `Graph Connectivity`))+
+  geom_boxplot(linewidth = 1)+
   geom_hline(aes(yintercept = GT), colour = 'red', linetype = 'dashed', linewidth = 1.5)+
   facet_grid(Layer ~ graph_type)+
   theme_bw()+
-  theme(legend.position = 'top',
-        axis.title = element_text(size = 12),
-        axis.text = element_text(size = 12))
+  theme(legend.position = 'top', legend.text = element_text(size = 16),axis.text = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0), size = 16),
+        axis.title.x = element_text(margin = margin(t = 0, r = 35, b = 0, l = 0), size = 16),
+        strip.text.x = element_text(size = 16),
+        strip.text.y = element_text(size = 16))
+pdf(paste0(fig_savepath, 'community_estimation_perf.pdf'), width = 10, height = 8)
 plot(A)
+dev.off()
 
 ```
 
+
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+fp1 = 'C:/Users/Bruin/OneDrive/Documents/GitHub/HGRN_repo/Reports/Report_2_13_2025/Output/Intermediate_applications/combined_results_all_simulations.csv'
+
+dtab = read.csv(fp1)
+dtab$StDev = as.factor(dtab$StDev)
+dtab$StDev = recode(dtab$StDev, "0.5" = "Stdev = 0.5", "0.1" = "Stdev = 0.1")
+dtab$subgraph_type = recode(dtab$subgraph_type, 'small world' = "Small World",
+                            'scale free' = 'Scale Free',
+                            'random graph' = 'Random Graph')
+
+#HC using gt
+HCtruth = subset(dtab, Scenario == 'GT' & Method =='HC' & output_layer == 'NOL')
+HCtruth$Method = recode(HCtruth$Method, "HC" = "HC-truth" )
+
+#Louvain basic
+Louvain = subset(dtab, Scenario == 'GT' & Method =='Louvain' & output_layer == 'NOL')
+
+#HCD using gt
+HCD_all_gt = subset(dtab, Scenario == 'GT' & Method %in% c('HCD-NOL', 'HCD-Linear', 'HCD-Kmeans-NOL', 'HCDGATv2', 'HCD-SAGE'))
+
+
+GT_ablation = rbind.data.frame(HCtruth, Louvain, HCD_all_gt)
+
+
+A = ggplot(data = subset(GT_ablation, Layer == 'Top Layer'), aes(x = Homogeneity, y = Completeness, fill = Method, shape = Method, color = Method ))+
+  scale_shape_manual(values=c(21:25, 21:25))+
+  scale_x_continuous(limits = c(0.6,1), breaks = seq(0.6, 1, 0.2))+
+  scale_y_continuous(limits = c(0.6,1), breaks = seq(0.6, 1, 0.2))+
+  geom_abline(slope = 1, intercept = 0, size = 1.5)+
+  geom_point(size = 2.5, color = 'black', alpha = 0.7)+
+  facet_grid(StDev~connection_type~subgraph_type)+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90),
+        legend.position = 'top', legend.text = element_text(size = 16),axis.text = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0), size = 16),
+        axis.title.x = element_text(margin = margin(t = 0, r = 35, b = 0, l = 0), size = 16),
+        strip.text.x = element_text(size = 16),
+        strip.text.y = element_text(size = 16),
+        plot.title = element_text(size = 16, hjust = 0.5))+
+  ggtitle("Clustering Performance on Top Layer (Ground Truth)")
+
+
+pdf(paste0(fig_savepath, 'ablation_top_layer.pdf'), width = 12, height = 10)
+plot(A)
+dev.off()
+
+
+
+B = ggplot(data = subset(GT_ablation, Layer == 'Middle Layer'), aes(x = Homogeneity, y = Completeness, fill = Method, shape = Method, color = Method ))+
+  scale_shape_manual(values=c(21:25, 21:25))+
+  scale_x_continuous(limits = c(0.6,1), breaks = seq(0.6, 1, 0.2))+
+  scale_y_continuous(limits = c(0.6,1), breaks = seq(0.6, 1, 0.2))+
+  geom_abline(slope = 1, intercept = 0, size = 1.5)+
+  geom_point(size = 2.5, color = 'black', alpha = 0.7)+
+  facet_grid(StDev~connection_type~subgraph_type)+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90),
+        legend.position = 'top', legend.text = element_text(size = 16),axis.text = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0), size = 16),
+        axis.title.x = element_text(margin = margin(t = 0, r = 35, b = 0, l = 0), size = 16),
+        strip.text.x = element_text(size = 16),
+        strip.text.y = element_text(size = 16),
+        plot.title = element_text(size = 16, hjust = 0.5))+
+  ggtitle("Clustering Performance on Middle Layer (Ground Truth)")
+
+pdf(paste0(fig_savepath, 'ablation_middle_layer.pdf'), width = 12, height = 10)
+plot(B)
+dev.off()
+
+
+
+# AB.1 = ggarrange(A+rremove("ylab")+rremove('xlab'), 
+#                  B+rremove("ylab")+rremove('xlab'), 
+#                  labels = c('A', 'B'), 
+#                  nrow = 2, 
+#                  ncol =1, 
+#                  common.legend = T, legend = 'top')
+# 
+# figure <- annotate_figure(AB.1,
+#                          bottom = text_grob("Homogeneity", size = 16),
+#                          left = text_grob("Completeness", rot = 90, size = 16))
+# 
+# plot(figure)
+
+# Display the figure
+
+```
+
+
+
+
+
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+fp1 = 'C:/Users/Bruin/OneDrive/Documents/GitHub/HGRN_repo/Reports/Report_2_13_2025/Output/Intermediate_applications/combined_results_all_simulations.csv'
+
+dtab = read.csv(fp1)
+dtab$StDev = as.factor(dtab$StDev)
+dtab$StDev = recode(dtab$StDev, "0.5" = "Stdev = 0.5", "0.1" = "Stdev = 0.1")
+dtab$subgraph_type = recode(dtab$subgraph_type, 'small world' = "Small World",
+                            'scale free' = 'Scale Free',
+                            'random graph' = 'Random Graph')
+
+#HC using gt
+HCtruth = subset(dtab, Scenario == 'GT' & Method =='HC' & output_layer == 'NOL')
+HCtruth$Method = recode(HCtruth$Method, "HC" = "HC-truth" )
+
+#Louvain basic
+Louvain = subset(dtab, Scenario == 'GT' & Method =='Louvain' & output_layer == 'NOL')
+
+#HCD using gt
+HCD_BH = subset(dtab, Scenario == 'BH' & Method == 'HCD-NOL' & Input.Type == 'feature matrix' &
+                Data.Scenario == 'Reg-Balanced')
+HCD_BH$Method = recode(HCD)
+
+
+GT_ablation = rbind.data.frame(HCtruth, Louvain, HCD_all_gt)
+
+
+```
 
 
 

@@ -42,9 +42,11 @@ parser.add_argument('--read_from', type=str, default='local', choices = ['local'
 parser.add_argument('--which_net', type=int, default=0, help='Network selection')
 parser.add_argument('--use_true_graph', type=bool, default=True, help='Sets the input graph to be the true topology')
 parser.add_argument('--correlation_cutoff', type=float, default=0.5, help='Use true graph or float giving graph with specified correlation cutoff')
+parser.add_argument('--mse_method', type=str, default='mse', choices=['mse', 'msenz'], help='Method for computing attribute reconstruction loss mse is classic Mean squared Error, while msenz is MSE computed over all nonzero values (recommended for sparse datasets such as scRNA)')
 parser.add_argument('--use_method', type=str, default='top_down', choices=['top_down','bottom_up'], help='method for uncovering the hierarchy')
 parser.add_argument('--use_softKMeans_top', type=bool, default=False, help='If true, the top layer is inferred with a softKMeans layer')
 parser.add_argument('--use_softKMeans_middle', type=bool, default=False, help='If true, the middle layer is inferred with a softKMeans layer')
+parser.add_argument('--use_gene_correlations', type=bool, default=False, help='when true the gene-gene correlation matrix is used as the input attributes')
 parser.add_argument('--gamma', type=float, default=1, help='Gamma value')
 parser.add_argument('--delta', type=float, default=1, help='Delta value')
 parser.add_argument('--lambda_', nargs='+', type=float, default=[1,1], help='Lambda value')
@@ -127,18 +129,21 @@ args.save_model = False
 args.set_seed = 555
 args.read_from = 'cluster'
 args.early_stopping = True
-args.patience = 20
+args.patience = 10
 args.use_method = "top_down"
 args.use_batch_learning = True
 args.batch_size = 64
 args.load_from_existing = False
+args.mse_method = 'mse'
+args.use_gpu = True
+args.use_gene_correlations = True
 
 #Adjusted Parameters
 args.use_softKMeans_top = False
 args.COMM_operator = 'None'
 args.community_sizes = [64, 5]
 args.compute_optimal_clusters = True
-args.kappa_method = 'silouette'
+args.kappa_method = 'bethe_hessian'
 
 #Unchanged Parameters
 args.use_softKMeans_middle = False
@@ -179,7 +184,7 @@ sim_args.common_dist = False
 sim_args.force_connect = True
 sim_args.set_seed = False
 sim_args.layers = 3 
-sim_args.sample_size = 500
+sim_args.sample_size = 1000
 
 
 #PATH to redirect output
@@ -224,11 +229,11 @@ for _type in graph_types:
                 sim_args.savepath = '/'.join([mainpath, 'graphs', dirname])+'/'
                 args.sp = '/'.join([mp, dirname])+'/'
                 
-                start_time = time.time()
+                #start_time = time.time()
                 results = run_single_simulation(args, simulation_args = sim_args, return_model = False, heads = 1)
-                end_time = time.time()
+                #end_time = time.time()
                 
-                time_data.append(end_time - start_time)
+                #time_data.append(end_time - start_time)
                 plt.close('all')
                 
                 #save parameters
@@ -244,7 +249,7 @@ for _type in graph_types:
                 
                 X, A, target_labels = set_up_model_for_simulation_inplace(args, sim_args, load_from_existing = True)
                 
-                model = torch.load(args.sp+'checkpoint.pth')
+                model = torch.load(args.sp+'checkpoint.pth', weights_only=False)
                 perf_layers, output, S_relab = evaluate(model, X, A, 2, true_labels = target_labels)
                 
                 X_hat, A_hat, X_all, A_all, P_all, S_all, AW = output

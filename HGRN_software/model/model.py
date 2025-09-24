@@ -22,7 +22,7 @@ from torchinfo import summary
 from torch_kmeans import SoftKMeans
 from typing import Optional, Union, List,  Literal
 
-
+# select all observations assigned to the same partition
 def select_class(X: torch.Tensor, labels: torch.Tensor, k: int, dim: int = 0, return_index: bool = False):
     #L = torch.tensor(labels)
     indices = torch.nonzero(labels == k)
@@ -33,7 +33,7 @@ def select_class(X: torch.Tensor, labels: torch.Tensor, k: int, dim: int = 0, re
     else:
         return X_sub
 
-
+#select the subgraph for nodes assigned to the same partition
 def select_subgraph(A: torch.Tensor, labels: torch.Tensor, k: int):
     #L = torch.tensor(labels)
     indices = torch.nonzero(labels == k).squeeze()
@@ -58,7 +58,7 @@ def reorganize_labels(S1: torch.Tensor, S2_list: torch.Tensor):
     return S2_reorganized
     
 
-
+#Graph Attention Auto Encoder
 class GATE(nn.Module):
     
     """
@@ -197,7 +197,7 @@ class CommunityDetectionLayers(nn.Module):
         return H_layers
         
 
-
+# The deepHCD class
 class HCD(nn.Module):
     """
     Hierarchical Graph Representation Network for genes.

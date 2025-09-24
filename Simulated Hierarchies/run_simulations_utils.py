@@ -187,56 +187,64 @@ def load_application_data_regulon(args):
     elif args.dataset == 'regulon.DM.activity':
         data = read_csv_fast(os.path.join(readpath,'Applications/Regulon_DMEM_organoid.csv'))
         gt = pd.read_csv(os.path.join(readpath,'Applications/Regulon_DM_groups.csv'))
+    elif args.dataset == 'regulon.DM.activity.imputed':
+        data = read_csv_fast(os.path.join(readpath,'Applications/Crop Liver/DMEM_organoid_imputed.csv'))
+        gt_final = pd.read_csv(os.path.join(readpath,'Applications/Crop Liver/DMEM_organoid_GT_labels.csv'))
     else:
         raise ValueError(f'ERROR {args.dataset} is not a valid dataset name.')
 
-    data.columns = ['GENE']+data.columns.tolist()[1:]
-    gene_labels = data['GENE'].tolist() 
-    stripped_labels = [i.strip('(+)') for i in gene_labels]
-    data['GENE'] = stripped_labels
-    
-    if 'EM' in args.dataset:
-        EM_index = [idx for idx, i in enumerate(data.columns) if "EM" in i]
-        regulon_data = data[data['GENE'].isin(gt['TF_gene'].tolist())].iloc[:, EM_index]
+    if args.dataset in ['regulon.DM.activity', 'regulon.DM.sc']:
+        data.columns = ['GENE']+data.columns.tolist()[1:]
+        gene_labels = data['GENE'].tolist() 
+        stripped_labels = [i.strip('(+)') for i in gene_labels]
+        data['GENE'] = stripped_labels
         
-    elif 'DM' in args.dataset:
-        DM_index = [idx for idx, i in enumerate(data.columns) if "DM" in i]
-        if 'activity' in args.dataset:
-            regulon_data = data[data['GENE'].isin(gt['TF_gene'].tolist())].iloc[:, [0]+DM_index]
+        if 'EM' in args.dataset:
+            EM_index = [idx for idx, i in enumerate(data.columns) if "EM" in i]
+            regulon_data = data[data['GENE'].isin(gt['TF_gene'].tolist())].iloc[:, EM_index]
+            
+        elif 'DM' in args.dataset:
+            DM_index = [idx for idx, i in enumerate(data.columns) if "DM" in i]
+            if 'activity' in args.dataset:
+                regulon_data = data[data['GENE'].isin(gt['TF_gene'].tolist())].iloc[:, [0]+DM_index]
+            else:
+                regulon_data = data.iloc[:, [0]+DM_index]
         else:
-            regulon_data = data.iloc[:, [0]+DM_index]
+            raise ValueError(f'ERROR {args.dataset} is not a valid dataset name.')
+            
+            
+        nodes, samples = regulon_data.shape
+        print(f'Loaded {args.dataset} data with dimension genes: {nodes} x samples: {samples}')
+        
+        print('Processing data ... ')
+        DM_array = regulon_data.iloc[:, 1:].to_numpy().astype(float)
+        if args.dataset == 'regulon.DM.sc':
+            kept_rows = [idx for idx, i in enumerate((DM_array > 0.0).sum(1)) if i/DM_array.shape[1] > 0.05] #remove genes represented in < 5% of cells
+            kept_cols = [idx+1 for idx, i in enumerate((DM_array > 0.0).sum(0)) if i/DM_array.shape[0] > 0.2] # remove columns represented in < 20% of genes
+            X_bad_gene_removed = regulon_data.iloc[kept_rows, :]
+            gene_labels = X_bad_gene_removed['GENE'].tolist()
+            X_processed = X_bad_gene_removed.iloc[:, kept_cols].to_numpy().astype(float)
+            gt_final = []
+            
+        elif args.dataset == 'regulon.DM.activity':
+            X_reduced = regulon_data.iloc[:, :]
+            gt_final = gt[gt['TF_gene'].isin(X_reduced['GENE'].tolist())]
+            X_sorted = X_reduced.set_index('GENE').reindex(gt_final['TF_gene']).reset_index()
+            kept_cols = [idx+1 for idx, i in enumerate((DM_array > 0.0).sum(0)) if i/DM_array.shape[0] >= 0.5] # remove columns represented in < 80% of genes
+            #X_processed = np.corrcoef(X_sorted.iloc[:, 1:].to_numpy(np.float32))
+            #fdf = X_sorted.iloc[:, kept_cols]
+            #fdf.to_csv(os.path.join(readpath,'Applications/Regulon_DMcells_filtered80.csv'))
+            X_processed = X_sorted.iloc[:, kept_cols].to_numpy().astype(float)
+            gene_labels = X_sorted['TF_gene'].tolist()
+            
     else:
-        raise ValueError(f'ERROR {args.dataset} is not a valid dataset name.')
-        
-        
-    nodes, samples = regulon_data.shape
-    print(f'Loaded {args.dataset} data with dimension genes: {nodes} x samples: {samples}')
-    
-    print('Processing data ... ')
-    DM_array = regulon_data.iloc[:, 1:].to_numpy().astype(float)
-    if args.dataset == 'regulon.DM.sc':
-        kept_rows = [idx for idx, i in enumerate((DM_array > 0.0).sum(1)) if i/DM_array.shape[1] > 0.05] #remove genes represented in < 5% of cells
-        kept_cols = [idx+1 for idx, i in enumerate((DM_array > 0.0).sum(0)) if i/DM_array.shape[0] > 0.2] # remove columns represented in < 20% of genes
-        X_bad_gene_removed = regulon_data.iloc[kept_rows, :]
-        gene_labels = X_bad_gene_removed['GENE'].tolist()
-        X_processed = X_bad_gene_removed.iloc[:, kept_cols].to_numpy().astype(float)
-        gt_final = []
-        
-    elif args.dataset == 'regulon.DM.activity':
-        X_reduced = regulon_data.iloc[:, :]
-        gt_final = gt[gt['TF_gene'].isin(X_reduced['GENE'].tolist())]
-        X_sorted = X_reduced.set_index('GENE').reindex(gt_final['TF_gene']).reset_index()
-        kept_cols = [idx+1 for idx, i in enumerate((DM_array > 0.0).sum(0)) if i/DM_array.shape[0] >= 0.5] # remove columns represented in < 80% of genes
-        #X_processed = np.corrcoef(X_sorted.iloc[:, 1:].to_numpy(np.float32))
-        #fdf = X_sorted.iloc[:, kept_cols]
-        #fdf.to_csv(os.path.join(readpath,'Applications/Regulon_DMcells_filtered80.csv'))
-        X_processed = X_sorted.iloc[:, kept_cols].to_numpy().astype(float)
-        gene_labels = X_sorted['TF_gene'].tolist()
+        X_processed = data.iloc[:, :(data.shape[1]-1)].to_numpy().astype(float)
+        gene_labels = data['TF_GENE']
     
     fnodes, fsamples = X_processed.shape
     print(f'Finished processing {args.dataset} data --> final dimension {fnodes}x{fsamples}')
     
-    if args.use_gene_correlations:
+    if args.use_gene_correlations: #should move this inside ifelse block above
         X_processed = np.corrcoef(X_processed)
         
     X, A = format_regulon_data(args=args, 
@@ -244,7 +252,8 @@ def load_application_data_regulon(args):
    
     fig, ax = plt.subplots(figsize=(12,12))
     sbn.heatmap(np.corrcoef(X.cpu().detach().numpy()), cmap = 'PRGn', yticklabels=gene_labels)
-    fig.savefig(args.sp+'OSCAR_HEATMAP.pdf')
+    if args.save_results:
+        fig.savefig(args.sp+'OSCAR_HEATMAP.pdf')
     
     return X, A, gene_labels, gt_final
 
